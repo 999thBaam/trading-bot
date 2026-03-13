@@ -118,6 +118,17 @@ class TestTradeLogger:
         pos = logger.get_open_position()
         assert pos["stop_loss"] == 97.5
 
+    def test_close_trade_sell_side_pnl(self, logger):
+        trade_id = logger.open_trade("BTCUSDT", "SELL", 50000.0, 0.001, "trend", 51000.0)
+        logger.close_trade(trade_id, 49000.0, "tp")
+        trade = logger.get_trade(trade_id)
+        # SELL P&L = (entry - exit) * qty = (50000 - 49000) * 0.001 = 1.0
+        assert trade["pnl"] == pytest.approx(1.0)
+
+    def test_close_trade_invalid_id_raises(self, logger):
+        with pytest.raises(ValueError, match="Trade 999 not found"):
+            logger.close_trade(999, 100.0, "sl")
+
     def test_get_all_strategy_stats(self, logger):
         t1 = logger.open_trade("BTCUSDT", "BUY", 100, 1.0, "trend", 95)
         logger.close_trade(t1, 105, "tp")

@@ -39,6 +39,8 @@ class TradeLogger:
 
     def close_trade(self, trade_id, exit_price, exit_reason):
         trade = self.get_trade(trade_id)
+        if trade is None:
+            raise ValueError(f"Trade {trade_id} not found")
         if trade["side"] == "BUY":
             pnl = (exit_price - trade["entry_price"]) * trade["quantity"]
         else:
@@ -85,7 +87,7 @@ class TradeLogger:
 
     def get_consecutive_losses(self):
         rows = self.conn.execute(
-            "SELECT pnl FROM trades WHERE pnl IS NOT NULL ORDER BY closed_at DESC"
+            "SELECT pnl FROM trades WHERE pnl IS NOT NULL ORDER BY id DESC"
         ).fetchall()
         count = 0
         for row in rows:
