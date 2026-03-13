@@ -54,3 +54,53 @@ class TestTrendFollower:
 
     def test_strategy_name(self):
         assert self.strategy.name == "trend"
+
+
+from strategies.mean_revert import MeanReversion
+
+def make_mr_df(closes, rsi, bb_lower, bb_upper, bb_middle):
+    n = len(closes)
+    return pd.DataFrame({
+        "close": closes, "high": [c * 1.01 for c in closes],
+        "low": [c * 0.99 for c in closes], "rsi": rsi,
+        "bb_lower": bb_lower, "bb_upper": bb_upper, "bb_middle": bb_middle,
+        "atr": [1.0] * n,
+    })
+
+class TestMeanReversion:
+    def setup_method(self):
+        self.strategy = MeanReversion()
+
+    def test_buy_on_oversold_rsi_and_lower_bb(self):
+        closes =    [100, 99, 98, 97, 96, 95]
+        rsi =       [40,  35, 32, 29, 27, 25]
+        bb_lower =  [94,  94, 94, 94, 94, 96]
+        bb_upper =  [106, 106, 106, 106, 106, 106]
+        bb_middle = [100, 100, 100, 100, 100, 100]
+        df = make_mr_df(closes, rsi, bb_lower, bb_upper, bb_middle)
+        signal = self.strategy.generate_signal(df)
+        assert signal.action == "buy"
+        assert signal.take_profit == pytest.approx(100)
+
+    def test_sell_on_overbought_rsi(self):
+        closes =    [100, 101, 102, 103, 104, 105]
+        rsi =       [60,  65, 68, 72, 75, 78]
+        bb_lower =  [94,  94, 94, 94, 94, 94]
+        bb_upper =  [106, 106, 106, 106, 106, 104]
+        bb_middle = [100, 100, 100, 100, 100, 100]
+        df = make_mr_df(closes, rsi, bb_lower, bb_upper, bb_middle)
+        signal = self.strategy.generate_signal(df)
+        assert signal.action == "sell"
+
+    def test_hold_when_rsi_neutral(self):
+        closes =    [100, 100, 100, 100, 100, 100]
+        rsi =       [50,  50, 50, 50, 50, 50]
+        bb_lower =  [94] * 6
+        bb_upper =  [106] * 6
+        bb_middle = [100] * 6
+        df = make_mr_df(closes, rsi, bb_lower, bb_upper, bb_middle)
+        signal = self.strategy.generate_signal(df)
+        assert signal.action == "hold"
+
+    def test_strategy_name(self):
+        assert self.strategy.name == "mean_revert"
