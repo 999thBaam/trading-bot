@@ -1,4 +1,8 @@
+import logging
+
 import config
+
+logger = logging.getLogger(__name__)
 
 
 class TradeExecutor:
@@ -6,9 +10,17 @@ class TradeExecutor:
         self.client = client
 
     def buy(self, symbol, quantity):
+        if config.PAPER_TRADING:
+            price = self.get_price(symbol)
+            logger.info("[PAPER] Simulated BUY %s qty=%.6f @ $%.2f", symbol, quantity, price)
+            return {"symbol": symbol, "side": "BUY", "status": "FILLED", "fills": [{"price": str(price), "qty": str(quantity)}]}
         return self.client.order_market_buy(symbol=symbol, quantity=quantity)
 
     def sell(self, symbol, quantity):
+        if config.PAPER_TRADING:
+            price = self.get_price(symbol)
+            logger.info("[PAPER] Simulated SELL %s qty=%.6f @ $%.2f", symbol, quantity, price)
+            return {"symbol": symbol, "side": "SELL", "status": "FILLED", "fills": [{"price": str(price), "qty": str(quantity)}]}
         return self.client.order_market_sell(symbol=symbol, quantity=quantity)
 
     def get_price(self, symbol):

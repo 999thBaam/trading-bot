@@ -54,5 +54,9 @@ TRAILING_STOP_PCT = 0.02        # 2% trailing stop
 # Approval rules
 LOSS_STREAK_APPROVAL = 3        # Require approval after N consecutive losses
 
+# Paper trading (set to False for real money)
+PAPER_TRADING = True
+
 # Database
 DB_PATH = "trades.db"
+PAPER_DB_PATH = "paper_trades.db"

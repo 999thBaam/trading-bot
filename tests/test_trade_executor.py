@@ -15,14 +15,32 @@ def executor(mock_client):
     return TradeExecutor(client=mock_client)
 
 class TestTradeExecutor:
-    def test_buy(self, executor, mock_client):
+    @patch("trade_executor.config")
+    def test_buy(self, mock_config, executor, mock_client):
+        mock_config.PAPER_TRADING = False
         result = executor.buy("BTCUSDT", 0.001)
         mock_client.order_market_buy.assert_called_once_with(symbol="BTCUSDT", quantity=0.001)
         assert result["status"] == "FILLED"
-    def test_sell(self, executor, mock_client):
+    @patch("trade_executor.config")
+    def test_sell(self, mock_config, executor, mock_client):
+        mock_config.PAPER_TRADING = False
         result = executor.sell("BTCUSDT", 0.001)
         mock_client.order_market_sell.assert_called_once_with(symbol="BTCUSDT", quantity=0.001)
         assert result["status"] == "FILLED"
+    @patch("trade_executor.config")
+    def test_buy_paper_mode(self, mock_config, executor, mock_client):
+        mock_config.PAPER_TRADING = True
+        result = executor.buy("BTCUSDT", 0.001)
+        mock_client.order_market_buy.assert_not_called()
+        assert result["status"] == "FILLED"
+        assert result["symbol"] == "BTCUSDT"
+    @patch("trade_executor.config")
+    def test_sell_paper_mode(self, mock_config, executor, mock_client):
+        mock_config.PAPER_TRADING = True
+        result = executor.sell("BTCUSDT", 0.001)
+        mock_client.order_market_sell.assert_not_called()
+        assert result["status"] == "FILLED"
+        assert result["symbol"] == "BTCUSDT"
     def test_get_price(self, executor):
         price = executor.get_price("BTCUSDT")
         assert price == 50000.0

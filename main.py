@@ -20,10 +20,12 @@ class TradingBot:
         self.analyzer = MarketAnalyzer(client=self.client)
         self.risk_manager = RiskManager()
         self.executor = TradeExecutor(client=self.client)
-        self.trade_logger = TradeLogger(config.DB_PATH)
+        db_path = config.PAPER_DB_PATH if config.PAPER_TRADING else config.DB_PATH
+        self.trade_logger = TradeLogger(db_path)
         self.telegram = TelegramAlert()
         self.running = True
         self.capital = config.INITIAL_CAPITAL
+        self.mode_label = "[PAPER] " if config.PAPER_TRADING else ""
 
     async def check_open_position(self):
         position = self.trade_logger.get_open_position()
@@ -33,11 +35,12 @@ class TradingBot:
         current_price = self.executor.get_price(symbol)
         stop_loss = position["stop_loss"]
         if self.executor.check_stop_loss(current_price, stop_loss, position["side"]):
-            logger.info("Stop-loss triggered for %s at %.2f", symbol, current_price)
+            logger.info("%sStop-loss triggered for %s at %.2f", self.mode_label, symbol, current_price)
             self.executor.sell(symbol, position["quantity"])
             self.trade_logger.close_trade(position["id"], current_price, "stop_loss")
             pnl = (current_price - position["entry_price"]) * position["quantity"]
-            await self.telegram.send_close_alert(symbol, current_price, pnl, "stop_loss")
+            prefix = "+" if pnl >= 0 else ""
+            await self.telegram.send(f"{self.mode_label}*Trade Closed*\n{symbol}\nExit: ${current_price:.2f}\nP&L: {prefix}${pnl:.4f}\nReason: stop_loss")
             return
         new_stop = self.executor.update_trailing_stop(current_price, stop_loss, config.TRAILING_STOP_PCT, position["side"])
         if new_stop != stop_loss:
@@ -77,8 +80,8 @@ class TradingBot:
         try:
             self.executor.buy(symbol, quantity)
             trade_id = self.trade_logger.open_trade(symbol=symbol, side="BUY", entry_price=entry_price, quantity=quantity, strategy=strategy.name, stop_loss=signal.stop_loss)
-            logger.info("Trade opened: %s BUY %.6f @ %.2f (trade_id=%d)", symbol, quantity, entry_price, trade_id)
-            await self.telegram.send_trade_alert(symbol, "BUY", entry_price, quantity, strategy.name, signal.stop_loss)
+            logger.info("%sTrade opened: %s BUY %.6f @ %.2f (trade_id=%d)", self.mode_label, symbol, quantity, entry_price, trade_id)
+            await self.telegram.send(f"{self.mode_label}*Trade Executed*\nBUY {symbol}\nPrice: ${entry_price:.2f}\nQuantity: {quantity:.6f}\nStrategy: {strategy.name}\nStop-loss: ${signal.stop_loss:.2f}")
         except Exception as e:
             logger.error("Trade execution failed: %s", e)
             await self.telegram.send(f"Trade execution failed: {e}")
@@ -110,8 +113,8 @@ class TradingBot:
         await self.telegram.send_weekly_summary(weekly_pnl, total_pnl, win_rate, total_trades, strategy_win_rates)
 
     async def run(self):
-        logger.info("Trading bot started with capital: $%.2f", self.capital)
-        await self.telegram.send("Trading bot started! Monitoring markets...")
+        logger.info("%sTrading bot started with capital: $%.2f", self.mode_label, self.capital)
+        await self.telegram.send(f"{self.mode_label}Trading bot started! Monitoring markets...")
         last_summary_hour = -1
         last_weekly_day = -1
         while self.running:
