@@ -37,13 +37,4 @@ class RiskManager:
             return False, "Blocked: daily loss limit exceeded. Needs approval to resume."
         if not self.check_drawdown(trade_logger):
             return False, "Blocked: max drawdown exceeded. Needs approval to resume."
-        reasons = []
-        if trade_logger.get_consecutive_losses() >= config.LOSS_STREAK_APPROVAL:
-            reasons.append(
-                f"Needs approval: {trade_logger.get_consecutive_losses()} consecutive losses"
-            )
-        if symbol and symbol not in trade_logger.get_coins_traded():
-            reasons.append(f"Needs approval: first trade on {symbol}")
-        if reasons:
-            return True, ". ".join(reasons)
         return True, "Trade allowed"

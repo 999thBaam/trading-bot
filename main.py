@@ -65,11 +65,6 @@ class TradingBot:
             logger.info("Signal: %s (confidence=%.2f, reason=%s)", signal.action, signal.confidence, signal.reason)
             if signal.action != "buy":
                 continue
-            _, approval_reason = self.risk_manager.validate_trade(self.trade_logger, self.capital, symbol=symbol)
-            if "approval" in approval_reason.lower():
-                approved = await self.telegram.request_approval(approval_reason)
-                if not approved:
-                    continue
             quantity = self.risk_manager.calculate_position_size(self.capital, df.iloc[-1]["close"], signal.stop_loss)
             if quantity <= 0:
                 continue

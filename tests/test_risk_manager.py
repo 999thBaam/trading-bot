@@ -65,13 +65,13 @@ class TestTradeValidation:
     def test_allows_valid_trade(self, rm, mock_logger):
         allowed, reason = rm.validate_trade(mock_logger, capital=12.0)
         assert allowed is True
-    def test_needs_approval_after_loss_streak(self, rm, mock_logger):
+    def test_allows_after_loss_streak(self, rm, mock_logger):
         mock_logger.get_consecutive_losses.return_value = 4
         allowed, reason = rm.validate_trade(mock_logger, capital=12.0)
         assert allowed is True
-        assert "approval" in reason.lower()
-    def test_needs_approval_for_new_coin(self, rm, mock_logger):
+        assert reason == "Trade allowed"
+    def test_allows_new_coin(self, rm, mock_logger):
         mock_logger.get_coins_traded.return_value = ["BTCUSDT"]
         allowed, reason = rm.validate_trade(mock_logger, capital=12.0, symbol="ETHUSDT")
         assert allowed is True
-        assert "approval" in reason.lower()
+        assert reason == "Trade allowed"
