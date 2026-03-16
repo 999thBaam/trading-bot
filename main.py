@@ -71,9 +71,9 @@ class TradingBot:
             position_value = quantity * df.iloc[-1]["close"]
             if not self.risk_manager.passes_fee_filter(position_value):
                 continue
-            entry_price = df.iloc[-1]["close"]
             try:
-                self.executor.buy(symbol, quantity)
+                result = self.executor.buy(symbol, quantity)
+                entry_price = float(result["fills"][0]["price"])
                 trade_id = self.trade_logger.open_trade(symbol=symbol, side="BUY", entry_price=entry_price, quantity=quantity, strategy=strategy.name, stop_loss=signal.stop_loss)
                 logger.info("%sTrade opened: %s BUY %.6f @ %.2f (trade_id=%d)", self.mode_label, symbol, quantity, entry_price, trade_id)
                 await self.telegram.send(f"{self.mode_label}*Trade Executed*\nBUY {symbol}\nPrice: ${entry_price:.2f}\nQuantity: {quantity:.6f}\nStrategy: {strategy.name}\nStop-loss: ${signal.stop_loss:.2f}")
