@@ -16,12 +16,12 @@ class MeanReversion(BaseStrategy):
         bb_lower = curr["bb_lower"]
         bb_upper = curr["bb_upper"]
         bb_middle = curr["bb_middle"]
-        if rsi < config.RSI_OVERSOLD and close <= bb_lower * 1.02:
+        if rsi < config.RSI_OVERSOLD and close <= bb_lower * 1.03:
             distance_to_mean = (bb_middle - close) / close
             confidence = min(0.5 + distance_to_mean * 5, 1.0)
-            return Signal(action="buy", confidence=max(confidence, 0.6), stop_loss=close - (1.5 * atr), take_profit=bb_middle, reason=f"RSI oversold ({rsi:.0f}) + near lower BB")
-        if rsi > config.RSI_OVERBOUGHT and close >= bb_upper * 0.98:
+            return Signal(action="buy", confidence=max(confidence, 0.5), stop_loss=close - (1.25 * atr), take_profit=bb_middle, reason=f"RSI oversold ({rsi:.0f}) + near lower BB")
+        if rsi > config.RSI_OVERBOUGHT and close >= bb_upper * 0.97:
             distance_to_mean = (close - bb_middle) / close
             confidence = min(0.5 + distance_to_mean * 5, 1.0)
-            return Signal(action="sell", confidence=max(confidence, 0.6), stop_loss=close + (1.5 * atr), take_profit=bb_middle, reason=f"RSI overbought ({rsi:.0f}) + near upper BB")
+            return Signal(action="sell", confidence=max(confidence, 0.5), stop_loss=close + (1.25 * atr), take_profit=bb_middle, reason=f"RSI overbought ({rsi:.0f}) + near upper BB")
         return Signal(action="hold", confidence=0.0, stop_loss=0.0, reason="RSI in neutral zone")

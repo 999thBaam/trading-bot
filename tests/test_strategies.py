@@ -4,12 +4,15 @@ from strategies.trend import TrendFollower
 from strategies.base import Signal
 
 
-def make_df_with_indicators(closes, ema_fast, ema_slow, macd_hist):
+def make_df_with_indicators(closes, ema_fast, ema_slow, macd_hist, rsi=None):
     n = len(closes)
+    if rsi is None:
+        rsi = [50.0] * n
     return pd.DataFrame({
         "close": closes, "high": [c * 1.01 for c in closes],
         "low": [c * 0.99 for c in closes], "ema_fast": ema_fast,
         "ema_slow": ema_slow, "macd_hist": macd_hist, "atr": [1.0] * n,
+        "rsi": rsi,
     })
 
 
@@ -25,7 +28,7 @@ class TestTrendFollower:
         df = make_df_with_indicators(closes, ema_fast, ema_slow, macd_hist)
         signal = self.strategy.generate_signal(df)
         assert signal.action == "buy"
-        assert signal.confidence > 0.5
+        assert signal.confidence >= 0.5
         assert signal.stop_loss < closes[-1]
 
     def test_sell_signal_on_ema_crossover_down(self):

@@ -14,9 +14,9 @@ class VolatilityHandler(BaseStrategy):
         close = curr["close"]
         atr = curr["atr"] if not pd.isna(curr["atr"]) else close * 0.02
         signals_agree = 0
-        if curr["rsi"] < 25:
+        if curr["rsi"] < 30:
             signals_agree += 1
-        elif curr["rsi"] > 75:
+        elif curr["rsi"] > 70:
             signals_agree -= 1
         if prev["macd_hist"] < 0 and curr["macd_hist"] > 0:
             signals_agree += 1
@@ -28,12 +28,12 @@ class VolatilityHandler(BaseStrategy):
             signals_agree += 1
         elif not fast_above_now and fast_above_prev:
             signals_agree -= 1
-        if close <= curr["bb_lower"] * 1.01:
+        if close <= curr["bb_lower"] * 1.02:
             signals_agree += 1
-        elif close >= curr["bb_upper"] * 0.99:
+        elif close >= curr["bb_upper"] * 0.98:
             signals_agree -= 1
-        if signals_agree >= 3:
-            return Signal(action="buy", confidence=0.8, stop_loss=close - (3 * atr), take_profit=curr["bb_middle"], reason=f"High-confidence buy in volatile market ({signals_agree} indicators agree)")
-        elif signals_agree <= -3:
-            return Signal(action="sell", confidence=0.8, stop_loss=close + (3 * atr), take_profit=curr["bb_middle"], reason=f"High-confidence sell in volatile market ({signals_agree} indicators agree)")
+        if signals_agree >= 2:
+            return Signal(action="buy", confidence=0.8, stop_loss=close - (2.5 * atr), take_profit=curr["bb_middle"], reason=f"High-confidence buy in volatile market ({signals_agree} indicators agree)")
+        elif signals_agree <= -2:
+            return Signal(action="sell", confidence=0.8, stop_loss=close + (2.5 * atr), take_profit=curr["bb_middle"], reason=f"High-confidence sell in volatile market ({signals_agree} indicators agree)")
         return Signal(action="hold", confidence=0.0, stop_loss=0.0, reason="Volatile market — sitting tight, no strong consensus")

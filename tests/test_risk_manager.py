@@ -19,8 +19,8 @@ def rm():
 class TestPositionSizing:
     def test_basic_position_size(self, rm):
         size = rm.calculate_position_size(capital=12.0, entry_price=100.0, stop_loss=98.0)
-        # risk_amount = 12*0.03 = 0.36, quantity = 0.36/2.0 = 0.18
-        # max_quantity = 12/100 = 0.12, capped to min(0.18, 0.12) = 0.12
+        # risk_amount = 12*0.05 = 0.60, quantity = 0.60/2.0 = 0.30
+        # max_quantity = 12/100 = 0.12, capped to min(0.30, 0.12) = 0.12
         assert size == pytest.approx(0.12)
     def test_position_size_respects_capital(self, rm):
         size = rm.calculate_position_size(capital=12.0, entry_price=100.0, stop_loss=99.9)
@@ -35,7 +35,7 @@ class TestDailyLimits:
         mock_logger.get_daily_pnl.return_value = -0.3
         assert rm.check_daily_limit(mock_logger, capital=12.0) is True
     def test_exceeded_daily_limit(self, rm, mock_logger):
-        mock_logger.get_daily_pnl.return_value = -0.7
+        mock_logger.get_daily_pnl.return_value = -1.0
         assert rm.check_daily_limit(mock_logger, capital=12.0) is False
 
 class TestDrawdown:
@@ -43,7 +43,7 @@ class TestDrawdown:
         mock_logger.get_total_pnl.return_value = -1.0
         assert rm.check_drawdown(mock_logger) is True
     def test_exceeded_drawdown(self, rm, mock_logger):
-        mock_logger.get_total_pnl.return_value = -2.0
+        mock_logger.get_total_pnl.return_value = -2.5
         assert rm.check_drawdown(mock_logger) is False
 
 class TestFeeFilter:
@@ -66,7 +66,7 @@ class TestTradeValidation:
         allowed, reason = rm.validate_trade(mock_logger, capital=12.0)
         assert allowed is True
     def test_needs_approval_after_loss_streak(self, rm, mock_logger):
-        mock_logger.get_consecutive_losses.return_value = 3
+        mock_logger.get_consecutive_losses.return_value = 4
         allowed, reason = rm.validate_trade(mock_logger, capital=12.0)
         assert allowed is True
         assert "approval" in reason.lower()

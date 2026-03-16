@@ -58,33 +58,62 @@ class TradingBot:
         results = self.analyzer.analyze_all_coins()
         if not results:
             return
-        symbol, df, regime, score = results[0]
-        logger.info("Best coin: %s (regime=%s, score=%.2f)", symbol, regime, score)
-        strategy = get_strategy(regime)
-        signal = strategy.generate_signal(df)
-        logger.info("Signal: %s (confidence=%.2f, reason=%s)", signal.action, signal.confidence, signal.reason)
-        if signal.action == "hold" or signal.action != "buy":
-            return
-        _, approval_reason = self.risk_manager.validate_trade(self.trade_logger, self.capital, symbol=symbol)
-        if "approval" in approval_reason.lower():
-            approved = await self.telegram.request_approval(approval_reason)
-            if not approved:
+        for symbol, df, regime, score in results:
+            logger.info("Checking %s (regime=%s, score=%.2f)", symbol, regime, score)
+            strategy = get_strategy(regime)
+            signal = strategy.generate_signal(df)
+            logger.info("Signal: %s (confidence=%.2f, reason=%s)", signal.action, signal.confidence, signal.reason)
+            if signal.action != "buy":
+                continue
+            _, approval_reason = self.risk_manager.validate_trade(self.trade_logger, self.capital, symbol=symbol)
+            if "approval" in approval_reason.lower():
+                approved = await self.telegram.request_approval(approval_reason)
+                if not approved:
+                    continue
+            quantity = self.risk_manager.calculate_position_size(self.capital, df.iloc[-1]["close"], signal.stop_loss)
+            if quantity <= 0:
+                continue
+            position_value = quantity * df.iloc[-1]["close"]
+            if not self.risk_manager.passes_fee_filter(position_value):
+                continue
+            entry_price = df.iloc[-1]["close"]
+            try:
+                self.executor.buy(symbol, quantity)
+                trade_id = self.trade_logger.open_trade(symbol=symbol, side="BUY", entry_price=entry_price, quantity=quantity, strategy=strategy.name, stop_loss=signal.stop_loss)
+                logger.info("%sTrade opened: %s BUY %.6f @ %.2f (trade_id=%d)", self.mode_label, symbol, quantity, entry_price, trade_id)
+                await self.telegram.send(f"{self.mode_label}*Trade Executed*\nBUY {symbol}\nPrice: ${entry_price:.2f}\nQuantity: {quantity:.6f}\nStrategy: {strategy.name}\nStop-loss: ${signal.stop_loss:.2f}")
                 return
-        quantity = self.risk_manager.calculate_position_size(self.capital, df.iloc[-1]["close"], signal.stop_loss)
-        if quantity <= 0:
-            return
-        position_value = quantity * df.iloc[-1]["close"]
-        if not self.risk_manager.passes_fee_filter(position_value):
-            return
-        entry_price = df.iloc[-1]["close"]
-        try:
-            self.executor.buy(symbol, quantity)
-            trade_id = self.trade_logger.open_trade(symbol=symbol, side="BUY", entry_price=entry_price, quantity=quantity, strategy=strategy.name, stop_loss=signal.stop_loss)
-            logger.info("%sTrade opened: %s BUY %.6f @ %.2f (trade_id=%d)", self.mode_label, symbol, quantity, entry_price, trade_id)
-            await self.telegram.send(f"{self.mode_label}*Trade Executed*\nBUY {symbol}\nPrice: ${entry_price:.2f}\nQuantity: {quantity:.6f}\nStrategy: {strategy.name}\nStop-loss: ${signal.stop_loss:.2f}")
-        except Exception as e:
-            logger.error("Trade execution failed: %s", e)
-            await self.telegram.send(f"Trade execution failed: {e}")
+            except Exception as e:
+                logger.error("Trade execution failed for %s: %s", symbol, e)
+                continue
+
+    async def send_scan_update(self):
+        position = self.trade_logger.get_open_position()
+        if position:
+            current_price = self.executor.get_price(position["symbol"])
+            pnl = (current_price - position["entry_price"]) * position["quantity"]
+            prefix = "+" if pnl >= 0 else ""
+            msg = (f"{self.mode_label}*Status Update*\n"
+                   f"In position: {position['symbol']}\n"
+                   f"Entry: ${position['entry_price']:.2f} | Now: ${current_price:.2f}\n"
+                   f"P&L: {prefix}${pnl:.4f}\n"
+                   f"Stop-loss: ${position['stop_loss']:.2f}\n"
+                   f"Capital: ${self.capital:.2f}")
+        else:
+            results = self.analyzer.analyze_all_coins()
+            if results:
+                symbol, df, regime, score = results[0]
+                price = df.iloc[-1]["close"]
+                strategy = get_strategy(regime)
+                signal = strategy.generate_signal(df)
+                msg = (f"{self.mode_label}*Status Update*\n"
+                       f"Top coin: {symbol} (${price:.2f})\n"
+                       f"Regime: {regime} | Score: {score:.2f}\n"
+                       f"Signal: {signal.action}\n"
+                       f"Capital: ${self.capital:.2f}")
+            else:
+                msg = f"{self.mode_label}*Status Update*\nNo coins to analyze\nCapital: ${self.capital:.2f}"
+        await self.telegram.send(msg)
 
     async def send_daily_summary(self):
         daily_pnl = self.trade_logger.get_daily_pnl()
@@ -121,6 +150,7 @@ class TradingBot:
             try:
                 await self.check_open_position()
                 await self.find_and_execute_trade()
+                await self.send_scan_update()
                 from datetime import datetime
                 now = datetime.now()
                 if now.hour == 23 and last_summary_hour != 23:
